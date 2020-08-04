@@ -1,0 +1,80 @@
+apply plugin: 'java'
+
+task cucumber(dependsOn: testClasses) {
+    dependsOn assemble, compileTestJava
+    doLast {
+        javaexec {
+            if (System.getProperty('debug', 'false') == 'true') {
+                jvmArgs '-Xdebug',
+                        '-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=9009'
+            }
+            systemProperty "cucumber.options", System.getProperty("cucumber.options")
+            systemProperty "env", System.getProperty("env")
+
+            printTestEnv(System.getProperty("env"))
+
+            main = "cucumber.api.cli.Main"
+            classpath = configurations.cucumberRuntime + sourceSets.main.output + sourceSets.test.output
+            args = ['--plugin', 'pretty',
+                    '--plugin', 'html:build/cucumber-reports',
+                    '--plugin', 'json:build/cucumber-reports/cucumber.json',
+                    '--glue', 'cucumber', 'src/test/resources/cucumber',
+                    '--tags', 'not @Ignore',
+                    '--tags', 'not @ignore']
+        }
+    }
+}
+
+
+def printTestEnv(String testEnv) {
+    def env = "Dev"
+    if (testEnv != null) {
+        env = System.getProperty("env").toUpperCase();
+    }
+    println "=================================================================================="
+    println "        Cucumber Project Functional Tests Running on \"" + env.toUpperCase() + "\" environment"
+    println "=================================================================================="
+}
+
+task cucumberList {
+    doLast {
+        File srcDir
+
+        FileCollection collection = files { srcDir.listFiles() }
+
+        srcDir = file('src/test/resources/cucumber/features/')
+        println "List of Cucumber Feature Files"
+        println "=============================="
+        collection.collect { relativePath(it) }.sort().each { println it }
+    }
+}
+
+
+sourceSets {
+    cucumber {
+        java.srcDir 'src/test/java'
+        resources.srcDir 'src/test/resources/cucumber'
+    }
+}
+
+
+dependencies {
+    compile group: 'io.cucumber', name: 'cucumber-java', version: '3.0.2'
+    compile group: 'io.cucumber', name: 'cucumber-core', version: '3.0.2'
+    compile group: 'io.cucumber', name: 'cucumber-spring', version: '3.0.2'
+    compile group: 'io.rest-assured', name: 'json-path', version: '3.1.0'
+    compile group: 'io.rest-assured', name: 'json-schema-validator', version: '3.1.0'
+    testCompile group: 'io.cucumber', name: 'cucumber-junit', version: '3.0.2'
+    testCompile group: 'io.rest-assured', name: 'rest-assured', version: '3.1.0'
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+}
+
+configurations {
+    cucumberRuntime {
+        extendsFrom testRuntime
+    }
+}
